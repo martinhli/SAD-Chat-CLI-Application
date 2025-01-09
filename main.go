@@ -64,23 +64,51 @@ func natsParameters(address string, channel string, name string) {
 	// Create a context to handle the graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 
-	//Goroutine to recieve messages
+	// Goroutine to handle received messages
 	go func(ctx context.Context) {
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				msg, err := sub.NextMsg(30 * time.Second) // Increased timeout
-				if err != nil {
-					if err == nats.ErrTimeout {
-						log.Println("No messages received within the timeout")
-						continue
+				// Fetch previous messages
+				fmt.Println("Fetching previous messages...")
+
+				// Fetch and display previous messages
+				for {
+					msg, err := sub.NextMsg(5 * time.Second) // Increased timeout
+					if err != nil {
+						if err == nats.ErrTimeout {
+							log.Println("No messages received within the timeout")
+							break
+						}
+						log.Printf("Error receiving message: %v", err)
+						break
 					}
-					log.Printf("Error receiving message: %v", err)
+					log.Printf("Received message: %s", string(msg.Data))
+				}
+
+				// Now prompt the user for new input after displaying messages
+				fmt.Print("Enter message: ")
+
+				// Wait for the user input to continue
+				scanner := bufio.NewScanner(os.Stdin)
+				if !scanner.Scan() {
+					break
+				}
+
+				// Read user input
+				text := scanner.Text()
+				if strings.TrimSpace(text) == "" {
 					continue
 				}
-				log.Printf("Received message: %s", string(msg.Data))
+
+				// Publish message
+				message := fmt.Sprintf("%s: %s", name, text)
+				log.Printf("Publishing message: %s", message)
+				if err := nc.Publish(channel, []byte(message)); err != nil {
+					log.Printf("Error publishing message: %v", err)
+				}
 			}
 		}
 	}(ctx)
@@ -99,24 +127,8 @@ func natsParameters(address string, channel string, name string) {
 		os.Exit(0)
 	}()
 
-	// Read the input from the user and publish messages
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		//Prompt the user to input a message
-		fmt.Print("Enter message: ")
-
-		// Read user input
-		text := scanner.Text()
-		if strings.TrimSpace(text) == "" {
-			continue
-		}
-		//Publish message
-		message := fmt.Sprintf("%s: %s", name, text)
-		log.Printf("Publishing message: %s", message)
-		if err := nc.Publish(channel, []byte(message)); err != nil {
-			log.Printf("Error publishing message: %v", err)
-		}
-	}
+	// Keep the main function running
+	select {}
 }
 
 func main() {
