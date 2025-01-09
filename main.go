@@ -102,11 +102,15 @@ func natsParameters(address string, channel string, name string) {
 	// Read the input from the user and publish messages
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
+		//Prompt the user to input a message
+		fmt.Print("Enter message: ")
+
 		// Read user input
 		text := scanner.Text()
 		if strings.TrimSpace(text) == "" {
 			continue
 		}
+		//Publish message
 		message := fmt.Sprintf("%s: %s", name, text)
 		log.Printf("Publishing message: %s", message)
 		if err := nc.Publish(channel, []byte(message)); err != nil {
